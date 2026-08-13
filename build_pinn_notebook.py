@@ -42,7 +42,14 @@ enveloppe gaussienne temporelle.
 
 **Physique clé** — la cavité est **fermée** : son premier mode acoustique ($\sim$1400 Hz) est
 au-dessus du sweep. La réponse est donc **contrôlée par la raideur** et dominée par le
-**mode uniforme** $\omega=0$. En intégrant l'équation sur le domaine (le flux Neumann annule
+**mode uniforme** $\omega=0$.
+
+> ⚠️ **Il n'y a donc pas de résonance de Helmholtz ici** : une boîte scellée ne résonne pas dans
+> 50–800 Hz. La résonance exige un **col ouvert** (le bouchon d'air du col oscille contre le
+> ressort d'air de la cavité) — c'est l'objet du notebook **`resonance_transitoire.ipynb`**
+> (col ouvert + extérieur maillé, $f_0\approx210$ Hz mesurée). Le présent notebook est un banc
+> d'essai **méthodologique** pour les pathologies d'entraînement des PINN, pas une étude de la
+> résonance. En intégrant l'équation sur le domaine (le flux Neumann annule
 $\int\nabla^2 p$) :
 $$ \frac{d^2}{dt^2}\langle p\rangle = \langle F\rangle, $$
 donc $\langle p\rangle(t)$ est la **double intégrale** de la source moyenne : l'asymétrie de
@@ -315,6 +322,11 @@ md(r"""## 7. Conclusions
 * **Honnêteté méthodologique** : le PINN n'apporte ici aucun avantage calculatoire sur le FDM
   (qui résout ce cas en $\sim90$ s) ; l'intérêt est **méthodologique** — comprendre et lever les
   pathologies d'entraînement des PINN sur un mode quasi-statique fortement forcé.
+
+* **Périmètre** : cette configuration est une **cavité fermée** (parois rigides partout), dont la
+  réponse est une rampe — *pas* une résonance de Helmholtz. Pour la résonance proprement dite
+  (col ouvert, extérieur maillé, $f_0\approx210$ Hz vérifiée à 2 % de la formule corrigée), voir
+  **`resonance_transitoire.ipynb`**.
 """)
 
 nb['cells'] = cells
