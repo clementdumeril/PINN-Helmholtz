@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / éditeurs
+.idea/
+.vscode/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dossiers temporaires / frames d'animation
+temp_frames/
+temp_*/
+
+# Poids externes lourds hors-sujet (ex. vgg16.h5)
+*.h5
