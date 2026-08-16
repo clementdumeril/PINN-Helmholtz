@@ -177,7 +177,64 @@ print(f"Q total attendu (reel)      : {Q_tot:6.1f}")
 print(f"temps de decroissance associe : {Q_tot/(np.pi*f0)*1e3:.0f} ms")
 """)
 
-md(r"""## 5. Limites et honnêteté
+md(r"""## 5. Vérification : convergence en maillage et sensibilité aux frontières
+
+Deux contrôles que ce notebook omettait, et qui corrigent l'un des résultats annoncés.
+""")
+
+co(r"""# --- (a) convergence en maillage de f0 ---
+cv = np.load('data/convergence_f0.npz')
+import pandas as pd
+display(pd.DataFrame({
+    "h (mm)": [f"{x*1e3:.2f}" for x in cv['h']],
+    "f0 (Hz, sinusoide ajustee)": [f"{x:.2f}" for x in cv['f0']],
+}))
+print(f"ordre observe        : {float(cv['order']):.2f}")
+print(f"f0 extrapolee h -> 0 : {float(cv['f_ext']):.2f} Hz")
+print(f"Helmholtz corrigee   : {float(cv['f_theo']):.2f} Hz")
+print(f"ecart                : {abs(float(cv['f_ext'])-float(cv['f_theo']))/float(cv['f_theo'])*100:.2f} %")
+""")
+
+md(r"""La fréquence **dérive avec le maillage**, et ce n'est pas du bruit : le solveur place ses
+parois une demi-maille au-delà du dernier nœud (voir `mms_transient.py`), donc la géométrie
+effectivement simulée vaut $R+h/2$ et $H+h$. C'est un biais **du premier ordre**, qu'il faut
+extrapoler pour comparer à une théorie analytique.
+
+> **Correction d'un résultat annoncé.** La valeur brute à $h=1$ mm (209,8 Hz) semblait coïncider
+> remarquablement avec le calcul fréquentiel par impédance de rayonnement (209,84 Hz). Cette
+> coïncidence était **fortuite** : le biais de maillage (+3 % à cette résolution) remontait la
+> valeur depuis ~205 Hz. Une fois extrapolée, la fréquence transitoire vaut 205,4 Hz. Les deux
+> nombres comparés portaient chacun une erreur de discrétisation non corrigée.
+""")
+
+co(r"""# --- (b) sensibilite aux couches absorbantes et a la taille du domaine ---
+sp = np.load('data/sponge_sensitivity.npz', allow_pickle=True)
+display(pd.DataFrame({
+    "configuration": [str(x) for x in sp['noms']],
+    "L_sponge (m)": sp['L_sp'], "Z_ext (m)": sp['Z_ext'], "facteur sigma": sp['sigma'],
+    "f0 (Hz)": [f"{x:.1f}" for x in sp['f0']], "Q": [f"{x:.0f}" for x in sp['Q']],
+}))
+print(f"f0 : variation totale {(sp['f0'].max()-sp['f0'].min())/sp['f0'].min()*100:.2f} %")
+print(f"Q  : variation totale facteur {sp['Q'].max()/sp['Q'].min():.1f}")
+""")
+
+md(r"""**Deux conclusions opposées.**
+
+* **$f_0$ est parfaitement robuste** : elle ne bouge pas d'un dixième de hertz quand on double
+  l'épaisseur de la couche absorbante, qu'on agrandit le domaine ou qu'on affaiblit l'absorption.
+  La fréquence propre est bien une propriété du résonateur.
+
+* **$Q$ ne l'est pas du tout** : il varie d'un **facteur 6** sous l'effet de réglages purement
+  numériques. Le « $Q pprox 105$ » obtenu avec le domaine de référence est donc un **artefact**,
+  pas une mesure. En agrandissant le domaine extérieur, $Q$ monte vers 267 — ce qui rejoint la
+  valeur du volet fréquentiel (278) — mais sans être convergé pour autant : il continue de croître
+  avec la taille du domaine.
+
+Autrement dit, ce calcul permet de mesurer une fréquence propre, **pas** un amortissement par
+rayonnement. Pour ce dernier il faudrait une PML formelle et une étude de convergence dédiée.
+""")
+
+md(r"""## 6. Limites et honnêteté
 
 * **Sous-longueur d'onde.** À 210 Hz, $\lambda\approx1{,}6$ m contre 12 cm de résonateur : la
   pression est **quasi uniforme dans la cavité**. Ce qu'on voit « se propager » est surtout le

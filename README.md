@@ -49,13 +49,27 @@ propre : après le passage de l'impulsion, la cavité continue d'osciller.
 
 | Grandeur | Mesuré | Référence | Écart |
 |---|---|---|---|
-| f₀ (FFT du régime libre) | **209,8 Hz** | Helmholtz **avec** corrections de bout : 205,6 Hz | **2,0 %** |
+| f₀ **extrapolée à maillage nul** | **204,6 Hz** (GCI 1,5 %) | Helmholtz **avec** corrections de bout : 205,6 Hz | **0,47 %** |
 | — | — | Helmholtz **sans** correction : 241,3 Hz | 15 % |
-| L_eff identifiée | 52,9 mm | col géométrique 40 mm → correction **1,29 R_col** | attendu ~1,5 |
-| Q_rayonnement | ≈ 105 | pertes visqueuses (Q≈47) dominent ⇒ Q réel ≈ 32 | — |
+| Ordre de convergence observé | 0,86 | 3 grilles : 2 / 1 / 0,5 mm | — |
+| Q par rayonnement | **non mesurable ici** | varie d'un facteur 6 selon les frontières | artefact numérique |
 
 Le maillage extérieur **calcule** la correction de bout au lieu de la postuler : c'est la
 **perspective n°1** du projet, désormais réalisée.
+
+**Vérification (ajoutée après coup, et elle corrige deux résultats).** Le solveur place ses parois
+une demi-maille au-delà du dernier nœud — la géométrie simulée vaut donc `R+h/2` et `H+h`, ce qui
+biaise f₀ au premier ordre. Trois conséquences :
+
+- la fréquence brute à h=1 mm (209,8 Hz) semblait coïncider avec le calcul fréquentiel par
+  impédance (209,84 Hz) ; cette coïncidence était **fortuite**, due au biais de maillage ;
+- une fois extrapolée, f₀ = **204,6 Hz**, à 0,47 % de la théorie corrigée — un accord plus faible
+  en apparence, mais cette fois **contrôlé** et assorti d'une incertitude ;
+- f₀ est **parfaitement robuste** au traitement des frontières (variation 0,00 %), alors que **Q
+  varie d'un facteur 6** : ce calcul mesure une fréquence propre, pas un amortissement.
+
+Vérification de code : `mms_transient.py` (solution manufacturée espace-temps, **ordre 1,98**),
+qui teste le masque, les flux nuls et l'axe — ce que la MMS du volet 1 ne couvrait pas.
 
 ## Volet 3 — Time-Marching PINN transitoire
 
@@ -67,7 +81,15 @@ Un PINN mesh-free naïf **s'effondre** vers une solution non physique (~3·10⁻
 2. **Gate d'IC-rampe** `g(t)=(t/T)·tanh(t/τ)` : repos initial en dur, interdit le mode DC constant.
 3. **Contrainte intégrale du mode uniforme** `⟨p⟩(t)=∬⟨F⟩` (dérivée de la source, pas du FDM).
 
-Entraînement par **curriculum temporel causal**. Résultat : **L2 ≈ 4,7 %** vs FDM (4,79 vs 4,96 Pa).
+Entraînement par **curriculum temporel causal**. Résultat : **L2 ≈ 4,7 %** vs FDM (4,79 vs 4,96 Pa),
+reproductible à **4,67 % ± 0,03 %** sur 3 graines.
+
+> **Mise en perspective, et elle est sévère.** Confronté à des références triviales, ce 4,7 % n'est
+> pas une réussite : la cible analytique `P_cible` — la double intégrale de la source, sans aucun
+> réseau — atteint **0,9 %**, et une simple droite ajustée à deux paramètres **2,3 %**. Le réseau
+> termine donc **cinq fois plus loin que sa propre cible**, et sa contribution nette sur cette
+> métrique est négative. La rampe représente 99 % de la norme du signal ; le ripple acoustique,
+> seule partie réellement difficile, moins de 1 %.
 
 > ⚠️ **Périmètre** : ce volet utilise une **cavité fermée** (parois rigides partout), dont la
 > réponse est une **rampe de pression** et non une résonance — c'est un banc d'essai
@@ -79,6 +101,8 @@ Entraînement par **curriculum temporel causal**. Résultat : **L2 ≈ 4,7 %** v
 
 ```bash
 python fdm_open_resonator.py          # volet 2 : résonance (~6 min)
+python mms_transient.py               # vérification de code du transitoire (~10 s)
+python convergence_f0.py              # convergence en maillage de f0
 python make_resonance_anim.py         # animation (après un run OR_TAG=_anim, cf. notebook)
 python fdm_transient_reference.py     # volet 3 : vérité-terrain FDM (~90 s)
 python train_pinn.py                  # volet 3 : entraînement PINN (~10 min CPU)

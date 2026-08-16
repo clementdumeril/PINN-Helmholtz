@@ -27,3 +27,13 @@ temp_*/
 
 # Poids externes lourds hors-sujet (ex. vgg16.h5)
 *.h5
+
+# Runs intermediaires des etudes de convergence et de sensibilite
+# (volumineux ; les resultats extraits sont dans convergence_f0.npz,
+#  sponge_sensitivity.npz et pinn_seeds.npz)
+data/open_resonator_h*.npz
+data/open_resonator_sp_*.npz
+data/train_pinn_seed*.npz
+models/pinn_marching_seed*.pth
+plots/train_pinn_seed*.png
+plots/open_resonator_diag_*.png

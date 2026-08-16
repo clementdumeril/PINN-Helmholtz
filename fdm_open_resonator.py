@@ -35,9 +35,9 @@ Z_TOP = L_NECK + H_CAV          # 0.12 m (fond de cavite)
 C = 343.0
 
 H       = float(os.environ.get("OR_H", 1.0)) * 1e-3     # pas d'espace
-R_EXT   = 0.12                                          # rayon du domaine exterieur
-Z_EXT   = 0.10                                          # profondeur exterieure
-L_SP    = 0.03                                          # epaisseur des couches absorbantes
+R_EXT   = float(os.environ.get("OR_REXT", 0.12))        # rayon du domaine exterieur
+Z_EXT   = float(os.environ.get("OR_ZEXT", 0.10))        # profondeur exterieure
+L_SP    = float(os.environ.get("OR_LSP", 0.03))         # epaisseur des couches absorbantes
 T_MAX   = float(os.environ.get("OR_TMS", 180.0)) * 1e-3
 
 # --- grille ---
@@ -74,7 +74,7 @@ def laplacian(p):
 # --- couches absorbantes (sponge) sur les bords exterieurs ---
 d_z = np.clip((-Z_EXT + L_SP - ZZ)/L_SP, 0.0, 1.0)
 d_r = np.clip((RR - (R_EXT - L_SP))/L_SP, 0.0, 1.0)
-SIG_MAX = 5.0 * C / L_SP
+SIG_MAX = float(os.environ.get("OR_SIG", 5.0)) * C / L_SP
 sigma = (np.maximum(d_z, d_r)**2) * SIG_MAX * dom
 
 # --- source : impulsion de Ricker (large bande) dans l'exterieur ---

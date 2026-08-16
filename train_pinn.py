@@ -32,7 +32,8 @@ import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE)
-torch.manual_seed(0); np.random.seed(0)
+SEED = int(os.environ.get('TP_SEED', 0))
+torch.manual_seed(SEED); np.random.seed(SEED)
 DEV = "cpu"; torch.set_num_threads(4)
 
 R_NECK, R_CAV, L_NECK = 0.01, 0.04, 0.04
@@ -194,7 +195,8 @@ for k, H in enumerate(horizons):
 if best["state"] is not None:
     model.load_state_dict(best["state"])
     print(f"[best interne] loss={best['loss']:.3e}")
-torch.save({"state": model.state_dict(), "scale_p": SCALE_P, "hid": HID, "tau": TAU}, "models/pinn_marching.pth")
+TAG = os.environ.get("TP_TAG", "")
+torch.save({"state": model.state_dict(), "scale_p": SCALE_P, "hid": HID, "tau": TAU}, f"models/pinn_marching{TAG}.pth")
 
 # --- verdict + figures ---
 l2c, mxc = l2_val()
@@ -206,11 +208,11 @@ print("\n=== VERDICT (vs FDM) ===")
 print(f"max|p| PINN sonde cavite : {mxc:.3f} Pa (FDM {np.abs(pc_ref).max():.3f})")
 print(f"L2 sonde cavite : {l2c*100:.1f} %   L2 sonde col : {l2n*100:.1f} %")
 
-np.savez("data/train_pinn.npz", t=tt, pc_pinn=pc, pc_ref=pc_ref, pn_pinn=pn, pn_ref=pn_ref, l2c=l2c, l2n=l2n)
+np.savez(f"data/train_pinn{TAG}.npz", t=tt, pc_pinn=pc, pc_ref=pc_ref, pn_pinn=pn, pn_ref=pn_ref, l2c=l2c, l2n=l2n)
 fig, ax = plt.subplots(1, 2, figsize=(12, 4.2))
 ax[0].plot(tt*1e3, pc_ref, "k", lw=1.3, label="FDM"); ax[0].plot(tt*1e3, pc, "C1", lw=1.0, label="PINN")
 ax[0].set_title(f"sonde cavite | L2={l2c*100:.1f}%"); ax[0].set_xlabel("t (ms)"); ax[0].set_ylabel("p (Pa)"); ax[0].legend(); ax[0].grid(alpha=.3)
 ax[1].plot(tt*1e3, pn_ref, "k", lw=1.3, label="FDM"); ax[1].plot(tt*1e3, pn, "C1", lw=1.0, label="PINN")
 ax[1].set_title(f"sonde col | L2={l2n*100:.1f}%"); ax[1].set_xlabel("t (ms)"); ax[1].set_ylabel("p (Pa)"); ax[1].legend(); ax[1].grid(alpha=.3)
-fig.tight_layout(); fig.savefig("plots/train_pinn.png", dpi=110)
+fig.tight_layout(); fig.savefig(f"plots/train_pinn{TAG}.png", dpi=110)
 print("Figure: plots/train_pinn.png | Modele: models/pinn_marching.pth")

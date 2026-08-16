@@ -253,6 +253,65 @@ print(f"erreur moyenne du champ (domaine) : {err[dom].mean():.3f} Pa "
       f"({err[dom].mean()/vmax*100:.1f} % de max|p|)")
 """)
 
+md(r"""### Mise en perspective : à quoi se compare 4,7 % ?
+
+Un écart relatif ne veut rien dire tant qu'on ne l'a pas confronté à des **références
+triviales**. C'est un test que ce notebook omettait, et il change la lecture du résultat.
+""")
+
+co(r"""# --- references triviales, meme metrique, meme sonde ---
+def L2(x): return np.linalg.norm(x - pc_ref)/np.linalg.norm(pc_ref)
+
+# (a) la solution nulle
+l2_zero = L2(np.zeros_like(pc_ref))
+# (b) la meilleure droite a*t : elle CONNAIT la reponse (ajustee dessus)
+a_fit = np.dot(t_ref, pc_ref)/np.dot(t_ref, t_ref)
+l2_lin1 = L2(a_fit*t_ref)
+# (c) la meilleure droite affine
+l2_lin2 = L2(np.polyval(np.polyfit(t_ref, pc_ref, 1), t_ref))
+# (d) la cible analytique P_cible : PREDICTION, calculee depuis la source seule
+l2_cible = L2(np.interp(t_ref, tg, Pcib))
+
+import pandas as pd
+display(pd.DataFrame({
+    "methode": ["p = 0 partout",
+                "PINN entraine (592 s)",
+                "droite a*t (1 parametre, AJUSTEE)",
+                "droite affine (2 parametres, AJUSTEE)",
+                "P_cible analytique (0 reseau, PREDICTION)"],
+    "ecart L2 (%)": [f"{l2_zero*100:.1f}", f"{l2_c*100:.1f}", f"{l2_lin1*100:.1f}",
+                     f"{l2_lin2*100:.1f}", f"{l2_cible*100:.1f}"]}))
+
+# part de la rampe dans le signal de reference
+ramp = np.interp(t_ref, tg, Pcib)
+print()
+print(f"rampe / signal total  : {np.linalg.norm(ramp)/np.linalg.norm(pc_ref)*100:.1f} %")
+print(f"ripple / signal total : {np.linalg.norm(pc_ref-ramp)/np.linalg.norm(pc_ref)*100:.1f} %")
+""")
+
+md(r"""**Lecture, sans complaisance.**
+
+* Les deux droites sont **ajustées sur la réponse du FDM** : elles ne prédisent rien, elles la
+  décrivent après coup. Leur rôle ici est de mesurer la **difficulté de l'examen** — et une droite
+  à deux paramètres décrit le signal à 2,3 % près. La métrique discrimine donc très peu.
+* La vraie concurrente est **`P_cible`**, qui est une authentique prédiction : elle est calculée
+  depuis la source seule, par double intégration de $\langle F
+angle$, sans aucun réseau ni
+  entraînement. Elle atteint **0,9 %**.
+* Le réseau, qui est explicitement contraint de suivre cette cible (poids 10), termine **cinq fois
+  plus loin qu'elle**. Sa contribution nette sur cette métrique est donc **négative** : on lui donne
+  une réponse à 0,9 % et il rend 4,7 %.
+
+La raison tient au compromis de la fonction de coût : le résidu (poids 1) est dominé par la zone de
+la source, non résoluble par un réseau lisse, et il tire le champ loin de la cible. S'y ajoute que
+la contrainte intégrale n'est estimée que sur 32 instants tirés au hasard par itération — un
+estimateur bruité, satisfait en moyenne et jamais exactement.
+
+Enfin, la décomposition du signal explique pourquoi la métrique est si peu discriminante : la rampe
+représente **99 %** de la norme, et le ripple acoustique — la partie réellement difficile —
+moins de **1 %**. Rater complètement l'acoustique ne coûte presque rien dans ce chiffre.
+""")
+
 md(r"""### Animation — le champ « se remplit »
 
 Le champ PINN et les sondes, synchronisés dans le temps (le mode uniforme se pressurise pendant
@@ -314,14 +373,26 @@ md(r"""## 7. Conclusions
   le mode DC), (c) **contrainte intégrale** $\langle p\rangle=P_{\text{cible}}=\iint\langle F\rangle$
   (dérivée de la source, pas du FDM). Le curriculum temporel causal fait le reste.
 
-* **Résultat vérifié** : le champ PINN **reproduit la référence FDM à $L2\approx4{,}7\%$** (sonde cavité)
-  / $4{,}5\%$ (col), avec la bonne amplitude ($4{,}79$ vs $4{,}96$ Pa) et l'IC de repos exacte. Le
-  résidu $\sim5\%$ correspond au **ripple acoustique tardif** partiellement capté — le mode uniforme
-  dominant, lui, est reproduit fidèlement.
+* **Résultat obtenu, et sa mise en perspective** : le champ PINN reproduit la référence FDM à
+  $L2\approx4{,}7\%$ (cavité) / $4{,}5\%$ (col), avec la bonne amplitude ($4{,}79$ vs $4{,}96$ Pa)
+  et l'IC de repos exacte. Mais confronté aux références triviales (§4), ce chiffre **n'est pas une
+  réussite** : la cible analytique $P_{\text{cible}}$, obtenue sans aucun réseau, atteint $0{,}9\%$,
+  et une simple droite à deux paramètres $2{,}3\%$. Le réseau termine **cinq fois plus loin que sa
+  propre cible** — sa contribution nette sur cette métrique est négative.
 
-* **Honnêteté méthodologique** : le PINN n'apporte ici aucun avantage calculatoire sur le FDM
-  (qui résout ce cas en $\sim90$ s) ; l'intérêt est **méthodologique** — comprendre et lever les
-  pathologies d'entraînement des PINN sur un mode quasi-statique fortement forcé.
+* **Ce qui reste acquis** : le piège du zéro est bel et bien levé. On est passé d'un champ à
+  $3\cdot10^{-3}$ Pa dont le résidu était *pire* que celui de $p\equiv0$ — physiquement vide de sens
+  — à un champ physique, avec une convergence monotone et une vérification indépendante. Le
+  diagnostic des deux minima dégénérés, et la démonstration qu'un détecteur à seuil ne peut pas les
+  voir, sont des acquis transférables.
+
+* **Ce qui n'est pas démontré** : que le PINN « résolve » ce problème de façon compétitive. Il
+  n'apporte aucun avantage calculatoire (592 s d'entraînement contre 94 s au FDM) ; il est
+  **assisté** par une contrainte construite à la main pour ce cas ; et la porte $g(t)$, conçue
+  *après* avoir observé la solution FDM, encode déjà la rampe qui constitue 99 % de la réponse.
+
+* **Limites de l'étude** : un seul jeu d'hyperparamètres, aucune étude de convergence en nombre de
+  points de collocation. `train_pinn.py` accepte `TP_SEED` pour tester la reproductibilité.
 
 * **Périmètre** : cette configuration est une **cavité fermée** (parois rigides partout), dont la
   réponse est une rampe — *pas* une résonance de Helmholtz. Pour la résonance proprement dite
