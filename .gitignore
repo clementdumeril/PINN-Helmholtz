@@ -37,3 +37,6 @@ data/train_pinn_seed*.npz
 models/pinn_marching_seed*.pth
 plots/train_pinn_seed*.png
 plots/open_resonator_diag_*.png
+
+# Archive locale des runs PINN infructueux (hors depot)
+_archive/

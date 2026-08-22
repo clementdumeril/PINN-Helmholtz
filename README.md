@@ -1,12 +1,11 @@
-# Résonateur de Helmholtz — étude numérique (FDM, résonance transitoire, PINN)
+# Résonateur de Helmholtz — étude numérique par différences finies
 
-Étude numérique d'un résonateur de Helmholtz axisymétrique, en trois volets complémentaires :
+Étude numérique d'un résonateur de Helmholtz axisymétrique, en deux volets complémentaires :
 
 | # | Notebook | Question | Résultat vérifié |
 |---|---|---|---|
 | **1** | `etude_helmholtz.ipynb` | Où est la résonance et de quoi dépend-elle ? | V&V complète : MMS ordre **2,03**, GCI **≈2 %**, validation Selamet **0,6 / 2,2 %** |
-| **2** | `resonance_transitoire.ipynb` | À quoi ressemble la résonance **en temps réel** ? | col ouvert + extérieur maillé → **f₀ = 209,8 Hz**, à **2,0 %** de la formule corrigée |
-| **3** | `pinn_3d_transient.ipynb` | Un PINN peut-il résoudre le transitoire ? | piège du zéro diagnostiqué et **levé** → champ vérifié à **L2 ≈ 4,7 %** vs FDM |
+| **2** | `resonance_transitoire.ipynb` | À quoi ressemble la résonance **en temps réel** ? | col ouvert + extérieur maillé → **f₀ = 204,6 Hz** (extrapolée, GCI 1,5 %), à **0,47 %** de la formule corrigée |
 
 ![Résonance de Helmholtz — col ouvert](plots/helmholtz_resonance.gif)
 
@@ -19,7 +18,6 @@ cavité **sonne seule** à sa fréquence propre. Volet 2.*
 pip install -r requirements.txt
 jupyter lab etude_helmholtz.ipynb          # volet 1 — FDM / V&V
 jupyter lab resonance_transitoire.ipynb    # volet 2 — résonance en transitoire
-jupyter lab pinn_3d_transient.ipynb        # volet 3 — PINN
 ```
 
 Les notebooks sont livrés **avec leurs sorties** (figures visibles sans rien exécuter).
@@ -71,32 +69,6 @@ biaise f₀ au premier ordre. Trois conséquences :
 Vérification de code : `mms_transient.py` (solution manufacturée espace-temps, **ordre 1,98**),
 qui teste le masque, les flux nuls et l'axe — ce que la MMS du volet 1 ne couvrait pas.
 
-## Volet 3 — Time-Marching PINN transitoire
-
-Un PINN mesh-free naïf **s'effondre** vers une solution non physique (~3·10⁻³ Pa, résidu pire que
-`p≡0`). On établit une **vérité-terrain FDM**, on diagnostique les deux minima triviaux (zéro
-« mou » et **mode DC constant**), puis trois correctifs rendent la méthode fonctionnelle :
-
-1. **Non-dimensionnement** (résidu ÷ *S₀*, sortie *O(1)*).
-2. **Gate d'IC-rampe** `g(t)=(t/T)·tanh(t/τ)` : repos initial en dur, interdit le mode DC constant.
-3. **Contrainte intégrale du mode uniforme** `⟨p⟩(t)=∬⟨F⟩` (dérivée de la source, pas du FDM).
-
-Entraînement par **curriculum temporel causal**. Résultat : **L2 ≈ 4,7 %** vs FDM (4,79 vs 4,96 Pa),
-reproductible à **4,67 % ± 0,03 %** sur 3 graines.
-
-> **Mise en perspective, et elle est sévère.** Confronté à des références triviales, ce 4,7 % n'est
-> pas une réussite : la cible analytique `P_cible` — la double intégrale de la source, sans aucun
-> réseau — atteint **0,9 %**, et une simple droite ajustée à deux paramètres **2,3 %**. Le réseau
-> termine donc **cinq fois plus loin que sa propre cible**, et sa contribution nette sur cette
-> métrique est négative. La rampe représente 99 % de la norme du signal ; le ripple acoustique,
-> seule partie réellement difficile, moins de 1 %.
-
-> ⚠️ **Périmètre** : ce volet utilise une **cavité fermée** (parois rigides partout), dont la
-> réponse est une **rampe de pression** et non une résonance — c'est un banc d'essai
-> *méthodologique* pour les pathologies d'entraînement des PINN. La résonance proprement dite est
-> traitée au volet 2. Le PINN n'apporte ici **aucun gain de calcul** sur le FDM ; l'intérêt est
-> méthodologique.
-
 ## Reproduire
 
 ```bash
@@ -104,23 +76,21 @@ python fdm_open_resonator.py          # volet 2 : résonance (~6 min)
 python mms_transient.py               # vérification de code du transitoire (~10 s)
 python convergence_f0.py              # convergence en maillage de f0
 python make_resonance_anim.py         # animation (après un run OR_TAG=_anim, cf. notebook)
-python fdm_transient_reference.py     # volet 3 : vérité-terrain FDM (~90 s)
-python train_pinn.py                  # volet 3 : entraînement PINN (~10 min CPU)
+python make_mode_anim.py              # animation du mode résonant établi (~30 s)
 ```
 
 ## Contenu
 
 ```
-etude_helmholtz.ipynb          volet 1 — FDM, V&V, longueur effective
+etude_helmholtz.ipynb          volet 1 — FDM fréquentiel, V&V, longueur effective
 resonance_transitoire.ipynb    volet 2 — résonance transitoire (col ouvert)
-pinn_3d_transient.ipynb        volet 3 — PINN (diagnostic + méthode + vérification)
 fdm_open_resonator.py          solveur transitoire col ouvert + extérieur maillé
-fdm_transient_reference.py     référence FDM transitoire (cavité fermée)
-train_pinn.py                  entraînement du time-marching PINN
-make_resonance_anim.py         animation de la résonance
-make_showcase_anim.py          animation du champ PINN
-build_*_notebook.py            génération des notebooks
-data/  plots/  models/         données, figures, modèle entraîné
+mms_transient.py               vérification de code du transitoire (MMS espace-temps)
+convergence_f0.py              convergence en maillage de f0 + extrapolation
+make_resonance_anim.py         animation du régime transitoire
+make_mode_anim.py              animation du mode résonant établi (quadrature col/cavité)
+build_resonance_notebook.py    génération du notebook du volet 2
+data/  plots/                  données et figures
 docs/PROTOCOLE_EXPERIMENTAL.md protocole de mesure sur résonateur réel
 ```
 
