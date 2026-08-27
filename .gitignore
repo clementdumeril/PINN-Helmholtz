@@ -40,3 +40,11 @@ plots/open_resonator_diag_*.png
 
 # Archive locale des runs PINN infructueux (hors depot)
 _archive/
+
+# Points de reprise des reseaux : volumineux et entierement reproductibles
+models/
+
+# Runs PINN intermediaires : ~25 Mo de champs de sonde. Les historiques dont
+# derivent tous les tableaux du rapport sont consolides dans pinn_runs_hist.npz
+data/pinn_open_*.npz
+data/pinn_scat_*.npz
